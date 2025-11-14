@@ -8,12 +8,35 @@ MIN_TRANSFORMERS_VERSION = '4.25.1'
 # check transformers version
 assert transformers.__version__ >= MIN_TRANSFORMERS_VERSION, f'Please upgrade transformers to version {MIN_TRANSFORMERS_VERSION} or higher.'
 
+MODEL_ID = "Waterhorse/chessgpt-chat-v1"
+
 class ChessGPT:
     def __init__(self):
-        self.tokenizer = AutoTokenizer.from_pretrained("/mnt/d/MET/College/Semester8/Project/Neuro-Symbolic-Chess-Solver/neurosymbolicAI/llmAI")
-        self.model = AutoModelForCausalLM.from_pretrained("/mnt/d/MET/College/Semester8/Project/Neuro-Symbolic-Chess-Solver/neurosymbolicAI/llmAI", low_cpu_mem_usage=True, trust_remote_code=True, torch_dtype=torch.float32)
-        self.model = self.model.to('cpu')
-        self.generator = pipeline(task="text-generation", model=self.model, tokenizer=self.tokenizer, model_kwargs={'device_map': "auto", "load_in_8bit": True}, max_new_tokens=200)
+        self.tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
+        if torch.cuda.is_available():
+            device = "cuda"
+            dtype = torch.float16
+        elif getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():
+            device = "mps"
+            dtype = torch.float16
+        else:
+            device = "cpu"
+            dtype = torch.float32
+
+        self.model = AutoModelForCausalLM.from_pretrained(
+            MODEL_ID,
+            low_cpu_mem_usage=True,
+            trust_remote_code=True,
+            torch_dtype=dtype,
+        )
+        self.model = self.model.to(device)
+        self.generator = pipeline(
+            task="text-generation",
+            model=self.model,
+            tokenizer=self.tokenizer,
+            model_kwargs={'device_map': "auto", "load_in_8bit": True},
+            max_new_tokens=200,
+        )
              
         
     def predict(self, fen_string):

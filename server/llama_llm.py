@@ -1,9 +1,8 @@
-import os
-from langchain_groq import ChatGroq
-import streamlit as st
+from langchain_community.chat_models import ChatOpenAI
+from config import get_secret
 
-llm = ChatGroq(
-    temperature=0.7, 
-    model_name="meta-llama/llama-4-scout-17b-16e-instruct", 
-    api_key=st.secrets.get("GROQ_API_KEY")
+llm = ChatOpenAI(
+    model="gpt-4o-mini",
+    temperature=0,
+    api_key=get_secret("OPENAI_API_KEY"),
 )
