@@ -36,7 +36,7 @@ if str(SERVER_ROOT) not in sys.path:
     sys.path.insert(0, str(SERVER_ROOT))
 
 # Reuse the same secret-loading logic the server uses
-from config import get_secret
+from server.config import get_secret
 
 
 def run_step(title: str, fn):

@@ -5,9 +5,21 @@ from langchain.chains.conversation.memory import ConversationBufferWindowMemory
 from langchain.prompts import PromptTemplate
 from langchain import hub
 # from gemini_llm import llm
-from llama_llm import llm
-from neurosymbolicAI import NeuroSymbolic
-from tools.cypher import cypher_qa
+
+try:  # pragma: no cover - prefer package-relative import
+    from .llama_llm import llm
+except ImportError:  # pragma: no cover - fallback when running as script
+    from llama_llm import llm
+
+try:  # pragma: no cover
+    from .neurosymbolicAI import NeuroSymbolic
+except ImportError:  # pragma: no cover
+    from neurosymbolicAI import NeuroSymbolic
+
+try:  # pragma: no cover
+    from .tools.cypher import cypher_qa
+except ImportError:  # pragma: no cover
+    from tools.cypher import cypher_qa
 
 try:  # pragma: no cover - fallback when running as a script
     from .prompts import CLASSIC_AGENT_PROMPT

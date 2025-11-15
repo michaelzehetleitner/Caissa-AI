@@ -15,10 +15,20 @@ from langchain_community.chat_models import ChatOpenAI
 from langgraph.graph import END, StateGraph
 
 # Agents
-from neurosymbolicAI import Verifier
-from neurosymbolicAI import Builder
-from reinforced_agent import generate_response
-from config import get_secret
+try:  # pragma: no cover
+    from .neurosymbolicAI import Verifier, Builder
+except ImportError:  # pragma: no cover
+    from neurosymbolicAI import Verifier, Builder
+
+try:  # pragma: no cover
+    from .reinforced_agent import generate_response
+except ImportError:  # pragma: no cover
+    from reinforced_agent import generate_response
+
+try:  # pragma: no cover
+    from .config import get_secret
+except ImportError:  # pragma: no cover
+    from config import get_secret
 
 try:  # pragma: no cover
     from .prompts import PIPELINE_MAIN_PROMPT, PIPELINE_VERIFIER_PROMPT
@@ -105,7 +115,7 @@ def verify_piece_position(state) -> list:
 
     print("--------------------------------------------------------------------------------------------------------------------------------------------------------\n")
     
-    return {"pipeline_history": [(state['verifier_agent_outcome'], verifier_output)]}
+    return verifier_output
 
 def verify_piece_relation(state) -> list:
     '''
@@ -137,7 +147,7 @@ def verify_piece_relation(state) -> list:
     print("Verifier Output:", verifier_output)
     print("--------------------------------------------------------------------------------------------------------------------------------------------------------\n")
 
-    return {"pipeline_history": [(state['verifier_agent_outcome'], verifier_output)]}
+    return verifier_output
 
 def verify_move_relation(state) -> list:
     '''
@@ -169,7 +179,7 @@ def verify_move_relation(state) -> list:
     print("Verifier Output:", verifier_output)
     print("--------------------------------------------------------------------------------------------------------------------------------------------------------\n")
 
-    return {"pipeline_history": [(state['verifier_agent_outcome'], verifier_output)]}
+    return verifier_output
 
 def generate_commentary(state) -> dict:
     '''
@@ -212,15 +222,26 @@ def build_relation(state) -> None:
     input = state['input']
     status = state['status']
     
-    if not(status == "N/A"):
-        try:
-            builder = Builder()
-            response = builder.build_relations(input)
-            return {"status": "End", "final_answer": "Hurray, the relationship was built successfully."}
-        except:
-            return {"status": "N/A", "final_answer": "Sorry, I could not build the new relation."}
-    else:
-        return {"status": "N/A", "final_answer": "Sorry, I could not build the new relation."}
+    success_message = "Hurray, the relationship was built successfully."
+    failure_message = "Sorry, I could not build the new relation."
+
+    if status == "N/A":
+        return {"status": "N/A", "final_answer": failure_message}
+
+    try:
+        builder = Builder()
+        builder.build_relations(input)
+        return {
+            "status": "End",
+            "final_answer": success_message,
+            "pipeline_history": [("Builder Agent", success_message)],
+        }
+    except Exception:
+        return {
+            "status": "N/A",
+            "final_answer": failure_message,
+            "pipeline_history": [("Builder Agent", failure_message)],
+        }
  
 # Tools
 main_tools = [
@@ -350,28 +371,32 @@ def execute_tools(state):
     
     status = state['status']
 
-    if status == "Verify Piece Position":
-        try:
+    def _failure():
+        return {
+            "status": "N/A",
+            "verifier_agent_outcome": "N/A",
+            "pipeline_history": [("Tiny Agent", "N/A")],
+        }
+
+    try:
+        if status == "Verify Piece Position":
             verification = verify_piece_position(state)
-        except:
-            return {"status": "N/A", "pipeline_history: ": [("Tiny Agent: N/A", "N/A")]}
-    elif status == "Verify Piece Relation":
-        try:
+        elif status == "Verify Piece Relation":
             verification = verify_piece_relation(state)
-        except:
-            return {"status": "N/A", "pipeline_history: ": [("Tiny Agent: N/A", "N/A")]}
-    elif status == "Verify Piece Move Feature":
-        try:
-            verification = verify_move_relation(state)  
-        except:
-            return {"status": "N/A", "pipeline_history: ": [("Tiny Agent: N/A", "N/A")]}
-    else:
-        return {"status": "N/A", "pipeline_history: ": [("Tiny Agent: N/A", "N/A")]}
+        elif status == "Verify Piece Move Feature":
+            verification = verify_move_relation(state)
+        else:
+            return _failure()
+    except Exception:
+        return _failure()
 
     print(bcolors.BOLD + "verification:" + bcolors.ENDC, verification)
     print("--------------------------------------------------------------------------------------------------------------------------------------------------------\n")
     
-    return {"pipeline_history": [("Tiny Agent", verification)]}
+    return {
+        "verifier_agent_outcome": verification,
+        "pipeline_history": [("Tiny Agent", verification)],
+    }
     
 def reflex_checkpoint(state):
     '''
@@ -407,12 +432,16 @@ def reflex_checkpoint(state):
             "final_answer": state.get("commentary_agent_outcome", "Sorry, I do not know the answer!"),
         }
     
-    print("verification['pipeline_history'][-1][1]", verification['pipeline_history'][-1][1])
-    print("type(verification['pipeline_history'][-1][1])", type(verification['pipeline_history'][-1][1]))
+    if isinstance(verification, dict) and "pipeline_history" in verification:
+        json_verification = verification['pipeline_history'][-1][1]
+    else:
+        json_verification = verification
+
+    print("json_verification:", json_verification)
+    print("type(json_verification):", type(json_verification))
     
     summary = ""
     commentary = ""
-    json_verification = verification['pipeline_history'][-1][1]
     list_of_verified_statements = []
         
     for elem in json_verification:

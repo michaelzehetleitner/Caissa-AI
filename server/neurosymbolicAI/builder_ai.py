@@ -6,7 +6,7 @@ from langchain.agents import AgentExecutor, create_react_agent
 from langchain_core.output_parsers import JsonOutputParser
 from pydantic import BaseModel, Field
 from .symbolicAI import Symbolic
-from config import get_secret
+from server.config import get_secret
 try:  # pragma: no cover
     from ..prompts import BUILDER_AGENT_PROMPT
 except ImportError:  # pragma: no cover
@@ -73,7 +73,14 @@ class Builder:
 
         agent_response = self.extract_relations(input_text)
         structured_text = agent_response.get("output", "")
-        json_response = self._load_structured_response(structured_text)
+        try:
+            parsed = self.parser.parse(structured_text)
+            if hasattr(parsed, "dict"):
+                json_response = parsed.dict()
+            else:
+                json_response = parsed
+        except Exception:
+            json_response = self._load_structured_response(structured_text)
         print("json_response:", json_response)
 
         relationships = json_response.get("relationships", "N/A")

@@ -1,4 +1,7 @@
-from neurosymbolicAI import NeuroSymbolic
+try:  # pragma: no cover
+    from .neurosymbolicAI import NeuroSymbolic
+except ImportError:  # pragma: no cover
+    from neurosymbolicAI import NeuroSymbolic
 
 ns = NeuroSymbolic()
 ns.symbolic.parse_fen('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')

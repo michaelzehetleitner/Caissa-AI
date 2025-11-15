@@ -3,9 +3,21 @@ from langchain.tools import Tool
 from langchain.chains.conversation.memory import ConversationBufferWindowMemory
 from langchain.prompts import PromptTemplate
 # from gemini_llm import llm
-from llama_llm import llm
-from neurosymbolicAI import NeuroSymbolic
-from tools.cypher import cypher_qa
+
+try:  # pragma: no cover
+    from .llama_llm import llm
+except ImportError:  # pragma: no cover
+    from llama_llm import llm
+
+try:  # pragma: no cover
+    from .neurosymbolicAI import NeuroSymbolic
+except ImportError:  # pragma: no cover
+    from neurosymbolicAI import NeuroSymbolic
+
+try:  # pragma: no cover
+    from .tools.cypher import cypher_qa
+except ImportError:  # pragma: no cover
+    from tools.cypher import cypher_qa
 
 try:  # pragma: no cover - fallback for script execution
     from .prompts import REINFORCED_AGENT_PROMPT

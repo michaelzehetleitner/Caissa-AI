@@ -1,16 +1,25 @@
-from flask import Flask, jsonify, request
-from flask_cors import CORS
+from __future__ import annotations
+
+import math
 import multiprocessing
 import os
-import math
+import sys
+from pathlib import Path
+
+from flask import Flask, jsonify, request
+from flask_cors import CORS
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 _dependency_error = None
 
 try:  # pragma: no cover
-    from .neurosymbolicAI import NeuroSymbolic
-    from .neurosymbolicAI.symbolicAI.symbolic_ai import Symbolic
-    from .agent import generate_response
-    from .pipeline import chat
+    from server.neurosymbolicAI import NeuroSymbolic
+    from server.neurosymbolicAI.symbolicAI.symbolic_ai import Symbolic
+    from server.agent import generate_response
+    from server.pipeline import chat
 except ImportError:
     try:
         from neurosymbolicAI import NeuroSymbolic  # type: ignore
@@ -26,13 +35,13 @@ except ImportError:
             raise RuntimeError(
                 "generate_response is unavailable because optional server "
                 "dependencies failed to import."
-            ) from exc
+            ) from _dependency_error
 
         def chat(*args, **kwargs):  # type: ignore
             raise RuntimeError(
                 "chat is unavailable because optional server dependencies "
                 "failed to import."
-            ) from exc
+            ) from _dependency_error
 except Exception as exc:  # pragma: no cover
     _dependency_error = exc
     NeuroSymbolic = None  # type: ignore
@@ -42,13 +51,13 @@ except Exception as exc:  # pragma: no cover
         raise RuntimeError(
             "generate_response is unavailable because optional server "
             "dependencies failed to import."
-        ) from exc
+        ) from _dependency_error
 
     def chat(*args, **kwargs):  # type: ignore
         raise RuntimeError(
             "chat is unavailable because optional server dependencies "
             "failed to import."
-        ) from exc
+        ) from _dependency_error
 
 if NeuroSymbolic is not None:  # pragma: no branch
     ns = NeuroSymbolic()

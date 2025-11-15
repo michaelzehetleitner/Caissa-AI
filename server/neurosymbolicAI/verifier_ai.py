@@ -6,7 +6,7 @@ from langchain.prompts import PromptTemplate
 from langchain.agents import AgentExecutor, create_react_agent
 from kor import create_extraction_chain, Object, Text
 from .symbolicAI import Symbolic
-from config import get_secret
+from server.config import get_secret
 try:  # pragma: no cover
     from ..prompts import (
         VERIFIER_JSON_PROMPT,
