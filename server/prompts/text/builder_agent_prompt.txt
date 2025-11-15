@@ -7,33 +7,14 @@
 <<CAREER_IMPORTANCE_BLOCK>>
             # Context
 <<JSON_ONLY_LINE>>
-            - Chess piece from the following list of pieces: [king, queen, knight, bishop, rook, pawn]
-            - Chess color of a chess piece from the following list: [black, white]
-            - Chess position of a chess piece from the following list of positions: [
-                a1, a2, a3, a4, a5, a6, a7, a8,
-                b1, b2, b3, b4, b5, b6, b7, b8,
-                c1, c2, c3, c4, c5, c6, c7, c8,
-                d1, d2, d3, d4, d5, d6, d7, d8,
-                e1, e2, e3, e4, e5, e6, e7, e8,
-                f1, f2, f3, f4, f5, f6, f7, f8,
-                g1, g2, g3, g4, g5, g6, g7, g8,
-                h1, h2, h3, h4, h5, h6, h7, h8
-             ]
-            - Chess relation between two chess pieces is from the following list of relations: [defend, threat]
-            - Chess move features between two chess pieces is from the following list of relations: [move_defend, move_threat, move_is_protected, move_is_attacked]
+            <<CHESS_PIECE_LIST_BLOCK>>
+            <<CHESS_COLOR_LIST_BLOCK>>
+            <<CHESS_BOARD_SQUARE_LIST_BLOCK>>
+            <<CHESS_RELATION_LIST_BLOCK>>
+            <<CHESS_RELATION_FEATURE_LIST_BLOCK>>
             - Please use relationship Suggest for defend, threat, attack with no word "move" in the question. Or, use relationship Feature for move(s) that is attacked, move that defend, move that is protected, move that threat with the word "move" in the question.
             
-                TOOLS:
-                ------
-                
-                You have access to the following tools:
-                
-                {tools}
-                
-                {tool_names}
-                
-                Do not use any tool
-                
+                <<TOOLS_NO_TOOL_BLOCK>>
                 
                 Please use the following format:
                 
@@ -61,10 +42,7 @@
             # How to get Final Answer step by step:
             1. Determine the name of the new relation.
             2. Split the description of the new relation into multiple features based on the following description of relationships:
-                1. {{feature: "move_defend"}}: is a move made by a piece from its current position to new position to defend an ally piece on a third different position. Use when asked about a "move" that defend or protect a piece.
-                2. {{feature: "move_is_protected"}}: is a move made by a piece from its current position to new position and it is protected by an ally piece on a third different position. Use when asked about pieces that defend or protect a "move".
-                3. {{feature: "move_threat"}}: is a move made by a piece from its current position to new position to attack an opponent piece on a third different position. Use when asked about a "move" that attack or threat a piece.
-                4. {{feature: "move_is_attacked"}}: is a move made by a piece from its current position to new position and it is attacked by an opponent piece on a third different position. Use when asked about pieces that attack or threat a "move".
+                <<CHESS_RELATIONSHIP_FEATURES_BLOCK>>
             3. Give Final Answer with the following format in JSON
                 1. `name`: name of the new relation.
                 2. `type`: type of the new relation which is either a `Feature` or `Suggest`.
@@ -75,6 +53,5 @@
             # Note
             - Do not include characters ```
             
-            New input: {input}
-            {agent_scratchpad}                                        
+            <<INTERACTION_SIMPLE_TAIL_INDENT>>                                        
         
