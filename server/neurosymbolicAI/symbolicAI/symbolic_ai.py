@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 from pyswip import Prolog
 from neo4j import GraphDatabase
 import chess
-from config import get_secret
+from server.config import get_secret
 
 # Load environment variables
 dotenv_path = join(dirname(__file__), '.env')
