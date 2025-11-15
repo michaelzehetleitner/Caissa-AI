@@ -1,5 +1,5 @@
 from .symbolicAI import Symbolic
-# from .llmAI import ChessGPT # predict next move
+from .llmAI import ChessGPT # predict next move
 from os.path import join, dirname
 from dotenv import load_dotenv
 import os
@@ -29,11 +29,14 @@ class NeuroSymbolic():
     reason_flag = True
     
     def __init__(self):
-        # self.gpt = ChessGPT()
+        skip_llm = os.getenv("CAISSA_SKIP_LLM") == "1"
+        self.gpt = None if skip_llm else ChessGPT()
         self.symbolic = Symbolic()
         self.symbolic.consult(KB_PATH)
         
     def predict(self, fen_string):
+        if self.gpt is None:
+            return ""
         output = self.gpt.play_puzzle(fen_string, ["fork", "discoveredAttack", "pin", "skewer", "mate", "mateIn2", "endgame", "hangingPiece"])
         predicted_move = output.split(",")[0]
         return predicted_move
@@ -106,7 +109,10 @@ class NeuroSymbolic():
     def suggest(self, fen_string: str = None, move: str = None, test: bool = False):
         if fen_string == None:
             return "Enter a valid FEN"
-        
+
+        if self.gpt is None:
+            return ("LLM disabled via CAISSA_SKIP_LLM=1; no prediction available.", "", [])
+
         output = self.predict(f"""{fen_string}""")
         
         # For testing purposes

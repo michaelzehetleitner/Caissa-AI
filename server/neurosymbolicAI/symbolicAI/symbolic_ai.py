@@ -3,15 +3,15 @@ from dotenv import load_dotenv
 from pyswip import Prolog
 from neo4j import GraphDatabase
 import chess
-import streamlit as st
+from config import get_secret
 
 # Load environment variables
 dotenv_path = join(dirname(__file__), '.env')
 load_dotenv(dotenv_path)
 
-URI = st.secrets["NEO4J_URI"]
-USER = st.secrets["NEO4J_USERNAME"]
-PASSWORD = st.secrets["NEO4J_PASSWORD"]
+URI = get_secret("NEO4J_URI")
+USER = get_secret("NEO4J_USERNAME")
+PASSWORD = get_secret("NEO4J_PASSWORD")
 
 class Symbolic():
     
@@ -930,9 +930,11 @@ class Symbolic():
             result = list(query)
         
             if result == []:
+                print(f"[Symbolic][move_threat] No moves for {player}")
                 return []
             
             output = result[0]['ListOfMoves']
+            print(f"[Symbolic][move_threat] {player} has {len(output)} candidate moves")
             
             for item in output:
                 piece = item[0]
@@ -957,9 +959,11 @@ class Symbolic():
             result = list(query)
         
             if result == []:
+                print(f"[Symbolic][move_defend] No moves for {player}")
                 return None
         
             output = result[0]['ListOfMoves']
+            print(f"[Symbolic][move_defend] {player} has {len(output)} candidate moves")
         
             for item in output:
                 piece = item[0]
@@ -971,6 +975,8 @@ class Symbolic():
                     ally_piece = ally[0]
                     ally_color = ally[1]
                     ally_position = ally[2]
+
+                    print(f"[Symbolic][move_defend] {color} {piece} {from_uci}->{to_uci} defends {ally_color} {ally_piece} @ {ally_position}")
                     
                     self.graph.create_feature(piece, color, from_uci, to_uci, ally_piece, ally_color, ally_position, "move_defend")
         except Exception as e:
@@ -984,9 +990,11 @@ class Symbolic():
             result = list(query)
         
             if result == []:
+                print(f"[Symbolic][move_is_protected] No moves for {player}")
                 return None
             
             output = result[0]['ListOfMoves']
+            print(f"[Symbolic][move_is_protected] {player} has {len(output)} candidate moves")
             
             for item in output:
                 piece = item[0]
@@ -998,6 +1006,8 @@ class Symbolic():
                     ally_piece = ally[0]
                     ally_color = ally[1]
                     ally_position = ally[2]
+
+                    print(f"[Symbolic][move_is_protected] {color} {piece} {from_uci}->{to_uci} protected by {ally_color} {ally_piece} @ {ally_position}")
                     
                     self.graph.create_feature(piece, color, from_uci, to_uci, ally_piece, ally_color, ally_position, "move_is_protected")
                     

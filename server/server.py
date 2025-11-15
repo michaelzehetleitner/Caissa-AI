@@ -1,14 +1,59 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 import multiprocessing
-from neurosymbolicAI import NeuroSymbolic
-from neurosymbolicAI.symbolicAI.symbolic_ai import Symbolic
-from agent import generate_response
-from pipeline import chat
 import os
 import math
 
-ns = NeuroSymbolic()
+_dependency_error = None
+
+try:  # pragma: no cover
+    from .neurosymbolicAI import NeuroSymbolic
+    from .neurosymbolicAI.symbolicAI.symbolic_ai import Symbolic
+    from .agent import generate_response
+    from .pipeline import chat
+except ImportError:
+    try:
+        from neurosymbolicAI import NeuroSymbolic  # type: ignore
+        from neurosymbolicAI.symbolicAI.symbolic_ai import Symbolic  # type: ignore
+        from agent import generate_response  # type: ignore
+        from pipeline import chat  # type: ignore
+    except Exception as exc:  # pragma: no cover
+        _dependency_error = exc
+        NeuroSymbolic = None  # type: ignore
+        Symbolic = None  # type: ignore
+
+        def generate_response(*args, **kwargs):  # type: ignore
+            raise RuntimeError(
+                "generate_response is unavailable because optional server "
+                "dependencies failed to import."
+            ) from exc
+
+        def chat(*args, **kwargs):  # type: ignore
+            raise RuntimeError(
+                "chat is unavailable because optional server dependencies "
+                "failed to import."
+            ) from exc
+except Exception as exc:  # pragma: no cover
+    _dependency_error = exc
+    NeuroSymbolic = None  # type: ignore
+    Symbolic = None  # type: ignore
+
+    def generate_response(*args, **kwargs):  # type: ignore
+        raise RuntimeError(
+            "generate_response is unavailable because optional server "
+            "dependencies failed to import."
+        ) from exc
+
+    def chat(*args, **kwargs):  # type: ignore
+        raise RuntimeError(
+            "chat is unavailable because optional server dependencies "
+            "failed to import."
+        ) from exc
+
+if NeuroSymbolic is not None:  # pragma: no branch
+    ns = NeuroSymbolic()
+else:  # pragma: no cover
+    ns = None
 
 KB_PATH = os.getenv('KB_PATH')
 
@@ -17,7 +62,7 @@ app = Flask(__name__, static_url_path='', static_folder='frontend/build')
 CORS(app, resources={r"*": {"origin": "*"}})
 
 # Helper methods
-def execute_tactic(tactic_method, color, description, filepath, fen_string) -> None:
+def execute_tactic(tactic_method, color, description, filepath, fen_string, symbolic_instance=None) -> None:
     '''
     Add a tactic relation to knowledge graph.
     
@@ -30,26 +75,42 @@ def execute_tactic(tactic_method, color, description, filepath, fen_string) -> N
     :return: #### None
     '''
     try:
-        s = Symbolic()
-        s.consult(filepath)
-        s.parse_fen(fen_string)
+        if symbolic_instance is not None:
+            s = symbolic_instance
+        else:
+            s = Symbolic()
+            s.consult(filepath)
+            s.parse_fen(fen_string)
         tactic_method(s, color)
         print(f"{color.capitalize()} {description}")
     except Exception as e:
         print(f"Error executing tactic {description}: {e}")
             
-def add_tactics_to_graph(filepath, fen_string):
+def add_tactics_to_graph(filepath, fen_string, symbolic_instance=None, tactics=None):
     '''
     Add all supported tactics relations to the knowledge graph.
     
     :param: :filepath: prolog file path
     :param: :fen_string: current forsyth-edwards notation of a chessboard
+    :param: :symbolic_instance: optional Symbolic instance to reuse
+    :param: :tactics: optional list of tactics overrides for testing
     
     :return: #### None
     '''
     
-    # Tactics
-    with multiprocessing.get_context('spawn').Pool(processes=max(os.cpu_count(), 10)) as pool:
+    if symbolic_instance is None:
+        if Symbolic is None:
+            raise RuntimeError(
+                "Symbolic is unavailable because optional dependencies failed "
+                "to import. Provide 'symbolic_instance' explicitly or install "
+                "the full server requirements."
+            )
+        symbolic = Symbolic()
+        symbolic.consult(filepath)
+    else:
+        symbolic = symbolic_instance
+
+    if tactics is None:
         tactics = [
             (Symbolic.mate, "white", "Mate"),
             (Symbolic.create_fork_relation, "white", "Fork"),
@@ -82,15 +143,20 @@ def add_tactics_to_graph(filepath, fen_string):
             (Symbolic.protected_move, "black", "Protected Move"),
             (Symbolic.attacked_move, "black", "Attacked Move")
         ]
-        
-        results = [
-            pool.apply_async(execute_tactic, (tactic_method, color, description, filepath, fen_string))
-            for tactic_method, color, description in tactics
-        ]
-        
-        # Ensure all tasks are completed
-        for r in results:
-            r.get()
+
+    # Ensure Prolog has latest fen before starting
+    symbolic.parse_fen(fen_string)
+
+    for tactic_method, color, description in tactics:
+        symbolic.parse_fen(fen_string)
+        execute_tactic(
+            tactic_method,
+            color,
+            description,
+            filepath,
+            fen_string,
+            symbolic_instance=symbolic
+        )
 
 # GET APIs
 @app.route("/legal_moves", methods=['GET'])
@@ -188,7 +254,7 @@ def make_move():
     else:
         if not promotion:
             ns.symbolic.construct_graph()
-            add_tactics_to_graph(KB_PATH, fen_string)
+            add_tactics_to_graph(KB_PATH, fen_string, symbolic_instance=ns.symbolic)
             
     print(f"Move result: {result}, New board: {new_board}")
     return jsonify({
@@ -206,7 +272,7 @@ def set_fen():
     ns.symbolic.update_board(fen_string)
     board = ns.symbolic.get_board()
     ns.symbolic.construct_graph()
-    add_tactics_to_graph(KB_PATH, fen_string)
+    add_tactics_to_graph(KB_PATH, fen_string, symbolic_instance=ns.symbolic)
     
     return jsonify({
         "board": board

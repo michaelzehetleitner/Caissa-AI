@@ -2,7 +2,6 @@ from json import tool
 import json
 import os
 import operator
-import streamlit as st
 from typing import TypedDict, Annotated, Union
 
 # LangChain
@@ -10,7 +9,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.agents import Tool, AgentExecutor, create_react_agent
 from langchain_core.agents import AgentAction, AgentFinish
 from langchain.prompts import PromptTemplate
-from langchain_groq import ChatGroq
+from langchain_community.chat_models import ChatOpenAI
 
 # LangGraph
 from langgraph.graph import END, StateGraph
@@ -19,6 +18,12 @@ from langgraph.graph import END, StateGraph
 from neurosymbolicAI import Verifier
 from neurosymbolicAI import Builder
 from reinforced_agent import generate_response
+from config import get_secret
+
+try:  # pragma: no cover
+    from .prompts import PIPELINE_MAIN_PROMPT, PIPELINE_VERIFIER_PROMPT
+except ImportError:  # pragma: no cover
+    from prompts import PIPELINE_MAIN_PROMPT, PIPELINE_VERIFIER_PROMPT
 
 class bcolors:
     HEADER = '\033[95m'
@@ -33,133 +38,23 @@ class bcolors:
     RED = '\033[31m'
 
 # Prompts
-main_prompt = PromptTemplate.from_template("""
-    # Role                                           
-    You are the main agent that decides which sub-agent to take based on the user input which is related to chess.
-    
-    # Context
-    You ONLY choose which agent to use from the list of agents.
-    
-    AGENTS:
-    ------
-    
-    You have access to the following agents:
+main_prompt = PromptTemplate.from_template(PIPELINE_MAIN_PROMPT)
 
-    {tools}
-           
-    please use the following format:
-
-    ```
-    Thought: What agent should I pick?
-    Action: the agent to take, should be one of [{tool_names}]
-    Final Answer: the output is the name of the agent choosen
-    ```
-    
-    # How to choose the sub-agent step by step:
-    1. If the user input request for create, building a new relation then choose `Builder Agent` agent.
-    2. If the user input request for generating a commentary or asked a question about position, relation between pieces or moves then choose `Reinforced Agent` agent. 
-    
-    # Examples:
-    ### Example 1
-    Input: Please give me a commentary for the move of white rook from a1 to a8.
-    Final Answer: Reinforced Agent
-    
-    ### Example 2
-    Input: What is the position of the black queen?
-    Final Answer: Reinforced Agent
-    
-    ## Example 3
-    Input: What does the white knight defend?
-    Final Answer: Reinforced Agent
-    
-    ### Example 4
-    Input: A move_threat_and_defend is a feature of a move that defend an ally piece and attack an opponent piece.
-    Final Answer: Builder Agent
-    
-    # Notes:
-        - Do not execute an agent.
-        - ONLY give Output as a Final Answer
-        - Do not include character ` in the Output
-        
-    Begin!
-
-    New input: {input}
-    {agent_scratchpad}
-    
-    Output:                               
-""")
-
-verifier_prompt = PromptTemplate.from_template("""
-    # Role
-    You are a chess expert, validating the commentary about chess piece position, chess piece moves, chess strategies and tactics                    
-    If you are asked about anything related to chess, please use a tool.      
-    
-    # Context
-    - You ONLY choose which tool to use from the list of tools! 
-    - Relationships description:
-        1. {{feature: "move_defend"}}: is a move made by a piece from its current position to new position to defend an ally piece on a third different position. Use when asked about a "move" that defend or protect a piece.
-        2. {{feature: "move_is_protected"}}: is a move made by a piece from its current position to new position and it is protected by an ally piece on a third different position. Use when asked about pieces that defend or protect a "move".
-        3. {{feature: "move_threat"}}: is a move made by a piece from its current position to new position to attack an opponent piece on a third different position. Use when asked about a "move" that attack or threat a piece.
-        4. {{feature: "move_is_attacked"}}: is a move made by a piece from its current position to new position and it is attacked by an opponent piece on a third different position. Use when asked about pieces that attack or threat a "move".
-        5. {{tactic: "defend"}}: is a relationship between a piece and an ally piece such that piece can defend or protect the ally piece. this is DIFFERENT from "move_defend" and "move_is_protected".
-        6. {{tactic: "threat"}}: is a relationship between a piece and an opponent piece such that piece can attack or threat the opponent. this is DIFFERENT from "move_threat" and "move_is_attacked".
-    - Verify Piece Position: {{piece: "", color: "", position: ""}}
-    - Verify Piece Relation: {{tactic: "threat"}}, {{tactic: "defend"}}
-    - Verify Piece Move Feature: {{feature: "move_is_attacked", piece: "", color: "", position: ""}}, {{feature: "move_defend", piece: "", color: "", position: ""}}, {{feature: "move_is_protected", piece: "", color: "", position: ""}} and {{feature: "move_threat", piece: "", color: "", position: ""}}                                   
-
-    TOOLS:
-    ------
-
-    You have access to the following tools:
-
-    {tools}
-
-    please use the following format:
-
-    ```
-    Thought: What tool should I pick?
-    Action: the action to take, should be one of [{tool_names}]
-    Final Answer: the output is the name of the tool choosen
-    ```
-    
-    # Examples:
-    ### Example 1
-    Input: The position of black queen is a2.
-    Final Answer: Verify Piece Position
-    
-    ### Example 2 
-    Input: I am sorry I can't answer the question.
-    Final Answer: N/A
-    
-    ### Example 3
-    Input: The black rook move from c3 to h3 is attacked by white rook at h1.
-    Final Answer: Verify Piece Move Feature
-    
-    # Notes:
-        - Do not execute a tool.
-        - ONLY give Output as a Final Answer
-    
-    Begin!
-
-    New input: {input}
-    {agent_scratchpad}
-    
-    Output:
-""")
+verifier_prompt = PromptTemplate.from_template(PIPELINE_VERIFIER_PROMPT)
 
 # Gemini LLM
 # llm = ChatGoogleGenerativeAI(
 #     model = "gemini-1.5-flash-8b",
-#     google_api_key = st.secrets["GEMINI_API_KEY"],
+#     google_api_key = get_secret("GEMINI_API_KEY"),
 #     convert_system_message_to_human = True,
 #     verbose = True,
 # )
 
-# LlAMA 4 Scout LLM
-llm = ChatGroq(
-    temperature=0, 
-    model_name="meta-llama/llama-4-scout-17b-16e-instruct", 
-    api_key=st.secrets.get("GROQ_API_KEY")
+# OpenAI LLM
+llm = ChatOpenAI(
+    model="gpt-4o-mini",
+    temperature=0,
+    api_key=get_secret("OPENAI_API_KEY"),
 )
 
 # Agent State class
@@ -344,17 +239,17 @@ main_tools = [
 verifier_tools = [
     Tool(
         name = "Verify Piece Position",
-        func = lambda fen_string, response: verify_piece_position(fen_string, response),   
+        func = lambda state: verify_piece_position(state),
         description = "useful when you need to verify the position of a chess piece in commentary."
     ),
     Tool(
         name = "Verify Piece Relation",
-        func = lambda fen_string, response: verify_piece_position(fen_string, response),
+        func = lambda state: verify_piece_relation(state),
         description = "useful when you need to verify the relation between chess pieces in commentary."
     ),
     Tool(
         name = "Verify Piece Move Feature",
-        func = lambda fen_string, response: verify_piece_position(fen_string, response),
+        func = lambda state: verify_move_relation(state),
         description = "useful when you need to verify the move feature of a chess piece in a commentary."
     ),
 ]
@@ -390,15 +285,22 @@ def run_main(state) -> dict:
     print("user_input:", user_input)
     print("--------------------------------------------------------------------------------------------------------------------------------------------------------\n")
 
-    main_agent_outcome = main_agent_runnable.invoke({"input": user_input})['output']
+    main_agent_result = main_agent_runnable.invoke({"input": user_input})
+    main_agent_outcome = main_agent_result.get('output', "")
     print("main_agent_outcome:", main_agent_outcome)
 
-    if main_agent_outcome == "Builder Agent":
-        return {"status": "Builder Agent", "pipeline_history": [("Main Agent", "Builder Agent")]}
-    elif main_agent_outcome == "Reinforced Agent":
-        return {"status": "Reinforced Agent", "pipeline_history": [("Main Agent", "Reinforced Agent")]}
-    else:
-        return {"status": "N/A"}
+    normalized_outcome = " ".join(main_agent_outcome.replace("`", " ").strip().split()).lower()
+    agent_map = [
+        ("builder agent", "Builder Agent"),
+        ("reinforced agent", "Reinforced Agent"),
+    ]
+
+    for keyword, agent_name in agent_map:
+        if keyword in normalized_outcome:
+            return {"status": agent_name, "pipeline_history": [("Main Agent", agent_name)]}
+
+    print(bcolors.WARNING + "Unrecognized agent selection, defaulting to N/A" + bcolors.ENDC)
+    return {"status": "N/A", "pipeline_history": [("Main Agent", main_agent_outcome or "N/A")]}
 
 def run_verifier(state) -> dict:
     '''
@@ -412,7 +314,11 @@ def run_verifier(state) -> dict:
     print(bcolors.OKCYAN + "run_verifier function" + bcolors.ENDC)
     print(bcolors.RED + "state:" + bcolors.ENDC, state)
 
-    chess_solver_commentary = state['commentary_agent_outcome']
+    commentary = state.get('commentary_agent_outcome')
+    if commentary is None:
+        print("run_verifier: missing commentary_agent_outcome, skipping verifier.")
+        return {"verifier_agent_outcome": "N/A", "status": "N/A"}
+    chess_solver_commentary = commentary
     print("chess solver commentary:", chess_solver_commentary)
     
     status = state['status']
@@ -481,15 +387,25 @@ def reflex_checkpoint(state):
     print(bcolors.OKCYAN + "reflex_checkpoint function" + bcolors.ENDC)
     print(bcolors.RED + "state:" + bcolors.ENDC, state)
     
-    verification = state["pipeline_history"][-1][1]
-    status = state['status']
+    pipeline_history = state.get("pipeline_history", [])
+    verification = pipeline_history[-1][1] if pipeline_history else "N/A"
+    status = state.get('status')
 
     print(bcolors.BOLD + "reflex verification:" + bcolors.ENDC, verification)
     print("type(verification):", type(verification))
     
     if verification == "N/A" or status == "N/A":
         print("--------------------------------------------------------------------------------------------------------------------------------------------------------\n")
-        return {"status": "N/A", "final_answer": "Sorry, I do not know the answer!"}
+        return {
+            "status": "End",
+            "final_answer": state.get("commentary_agent_outcome", "Sorry, I do not know the answer!"),
+        }
+    if isinstance(verification, str):
+        print("reflex_checkpoint: unexpected verification type, returning commentary directly.")
+        return {
+            "status": "End",
+            "final_answer": state.get("commentary_agent_outcome", "Sorry, I do not know the answer!"),
+        }
     
     print("verification['pipeline_history'][-1][1]", verification['pipeline_history'][-1][1])
     print("type(verification['pipeline_history'][-1][1])", type(verification['pipeline_history'][-1][1]))
@@ -632,7 +548,7 @@ def chat(input, fen_string) -> str:
     :return: text generated from the chatbot
     '''
     
-    inputs = {"input": input, "status": "Begin", "fen": fen_string}
+    inputs = {"input": input, "status": "Begin", "fen": fen_string, "pipeline_history": []}
     
     results = []
     
@@ -643,6 +559,11 @@ def chat(input, fen_string) -> str:
             print(bcolors.OKGREEN + "Result:" + bcolors.ENDC, result)
             print("--------------------------------------------------------------------------------------------------------------------------------------------------------\n") 
         
-        return results[-1]['final_answer']
-    except:
+        for result in reversed(results):
+            if 'final_answer' in result:
+                return result['final_answer']
+
+        return "Sorry, I do not know the answer!"
+    except Exception as exc:
+        print(f"Error while running chat pipeline: {exc}")
         return "Sorry, I do not know the answer!"

@@ -1,17 +1,33 @@
 import os
 import json
-from langchain_groq import ChatGroq
+from langchain_community.chat_models import ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import PromptTemplate
 from langchain.agents import AgentExecutor, create_react_agent
 from kor import create_extraction_chain, Object, Text
 from .symbolicAI import Symbolic
-import streamlit as st
+from config import get_secret
+try:  # pragma: no cover
+    from ..prompts import (
+        VERIFIER_JSON_PROMPT,
+        VERIFIER_FIX_PROMPT,
+        POSITION_SCHEMA_DESCRIPTION,
+        RELATION_SCHEMA_DESCRIPTION,
+        MOVE_FEATURE_SCHEMA_DESCRIPTION,
+    )
+except ImportError:  # pragma: no cover
+    from prompts import (
+        VERIFIER_JSON_PROMPT,
+        VERIFIER_FIX_PROMPT,
+        POSITION_SCHEMA_DESCRIPTION,
+        RELATION_SCHEMA_DESCRIPTION,
+        MOVE_FEATURE_SCHEMA_DESCRIPTION,
+    )
 
-os.environ["URI"] = st.secrets["NEO4J_URI"]
-os.environ["NEO_USER"] = st.secrets["NEO4J_USERNAME"]
-os.environ["PASSWORD"] = st.secrets["NEO4J_PASSWORD"]
-os.environ["KB_PATH"] = st.secrets["KB_PATH"]
+os.environ["URI"] = get_secret("NEO4J_URI")
+os.environ["NEO_USER"] = get_secret("NEO4J_USERNAME")
+os.environ["PASSWORD"] = get_secret("NEO4J_PASSWORD")
+os.environ["KB_PATH"] = get_secret("KB_PATH")
 
 class Verifier():  
     
@@ -20,79 +36,21 @@ class Verifier():
         # Gemini LLM
         # self.llm = ChatGoogleGenerativeAI(
         #     model="gemini-1.5-flash-8b", 
-        #     google_api_key=st.secrets["GEMINI_API_KEY"],
+        #     google_api_key=get_secret("GEMINI_API_KEY"),
         #     temperature=0,
         # )
 
-        # LlAMA 4 Scout LLM
-        self.llm = ChatGroq(
-            temperature=0.7,
-            model_name="meta-llama/llama-4-scout-17b-16e-instruct", 
-            api_key=st.secrets.get("GROQ_API_KEY")
+        # OpenAI LLM
+        self.llm = ChatOpenAI(
+            model="gpt-4o-mini",
+            temperature=0,
+            api_key=get_secret("OPENAI_API_KEY"),
         )
 
         self.sym = Symbolic()
         self.sym.consult(os.getenv('KB_PATH'))
         
-        self.agent_prompt = PromptTemplate.from_template("""
-            # Role
-            You are an expert in converting complex text to simple statements in form of JSON
-            you have no knowledge about anything other than converting statements to JSON
-            NEVER add information not stated in the input such as color, position, relations or features.
-            
-            # Specifics
-            - This is very important to my career
-            - This task is vital to my career, and I greatly value your thorough analysis
-            
-            # Context 
-            - You MUST ONLY give the JSON format of the Input.
-            
-                TOOLS:
-                ------
-
-                You have access to the following tools:
-
-                {tools}
-
-                To use a tool, please use the following format:
-
-                    Thought: Do I need to use a tool? Yes
-                    Action: the action to take, should be one of [{tool_names}]
-                    Action Input: the input to the action
-                    Observation: the result of the action
-                    Output: the output from the tool
-
-                When you have a response to say to the Human, or if you do not need to use a tool, you MUST use the format:
-
-                    Thought: Do I need to use a tool? No
-                    Final Answer: [your response here]
-            
-            # Examples
-            ### Example 1
-            Input: The white queen at e4 defends white pawn at c2, white pawn at b2 and white king at c1
-            Answer: {{'statements': {{'statement_1': 'The white queen at e4 defends white pawn at c2', 'statement_2': 'The white queen at e4 defends white pawn at b2', 'statement_3': 'The white queen at e4 defends white king at c1'}}}}                        
-
-            ### Example 2
-            Input: white queen at g3 is attacked by black king at h8 for the move g8.
-            Answer: {{'statements': {{'statement_1': 'white queen at g3 is attacked by black king at h8 for the move g8'}}}}
-            
-            ### Example 3
-            Input: The position of kings are e4 and b2.
-            Answer: {{'statements': {{'statement_1': 'The king position is e4', 'statement_2': 'The king position is b2'}}}}
-            
-            ### Example 4
-            Input: The black rook move from c3 to h3 is attacked by white rook at h1.
-            Answer: {{'statements': {{'statement_1': 'The black rook move from c3 to h3 is attacked by white rook at h1'}}}}
-
-            # Note:
-            - Do NOT provide your opinion regarding the input ONLY convert text to JSON.
-            - Do not write Uppercased or Capitalized letters for color, piece or position
-            - Generate a statement for every comma ','
-            - Please do not include ``` in your output
-                            
-            New input: {input}
-            {agent_scratchpad}
-        """)
+        self.agent_prompt = PromptTemplate.from_template(VERIFIER_JSON_PROMPT)
         
         self.agent = create_react_agent(self.llm, [], self.agent_prompt)
         self.agent_executor = AgentExecutor(
@@ -101,42 +59,7 @@ class Verifier():
             verbose=True
         )
         
-        self.fix_agent_prompt =  PromptTemplate.from_template(""" 
-            # Role
-            You are an english expert in re-adjusting statements in better structure
-            you have no knowledge about anything else
-            Do NOT state your opnion                          
-                                                              
-            # Specifics
-            - This is very important to my career
-            - This task is vital to my career, and I greatly value your thorough analysis
-            
-            You have access to the following tools:
-                
-            {tools}
-            
-            {tool_names}
-                
-            Do not use any tool
-
-            When you have a response to say to the Human, you MUST use the format:
-
-                Thought: Do I have an answer? Yes
-                Final Answer: [your response here]
-            
-            # Examples
-            ### Example 1
-            Input: {{"statement": "The position of queen is d8", "piece": queen, "color": white, "position": d8}}
-            Final Answer: The position of the white queen is d8. 
-            
-            # Note
-            - Do not include in the output the characters ```
-            - Please remove the character ` from the output
-            - If the statement stated that it does not know the answer then ignore it and must use the remaining information to provide an answer.
-            
-            New input: {input}
-            {agent_scratchpad}         
-        """)
+        self.fix_agent_prompt =  PromptTemplate.from_template(VERIFIER_FIX_PROMPT)
         
         self.fix_agent = create_react_agent(self.llm, [], self.fix_agent_prompt)
         self.fix_agent_executor = AgentExecutor(
@@ -165,23 +88,7 @@ class Verifier():
                     attributes=[
                         Text(
                             id="piece",
-                            description="""
-                                Chess piece from the following list of pieces: [king, queen, knight, bishop, rook, pawn]
-                                Chess color of a chess piece from the following list: [black, white]
-                                Chess position of a chess piece from the following list of positions: [
-                                    a1, a2, a3, a4, a5, a6, a7, a8,
-                                    b1, b2, b3, b4, b5, b6, b7, b8,
-                                    c1, c2, c3, c4, c5, c6, c7, c8,
-                                    d1, d2, d3, d4, d5, d6, d7, d8,
-                                    e1, e2, e3, e4, e5, e6, e7, e8,
-                                    f1, f2, f3, f4, f5, f6, f7, f8,
-                                    g1, g2, g3, g4, g5, g6, g7, g8,
-                                    h1, h2, h3, h4, h5, h6, h7, h8
-                                ]
-                                
-                                # Note
-                                - you must fill fields with 'N/A' if they are not stated in the input.
-                            """,
+                            description=POSITION_SCHEMA_DESCRIPTION,
                             examples=[
                                 ("The position of black queen is a2.", "{'piece': 'queen', 'color': 'black', 'position': 'a2'}"),
                                 ("The position of king is a2.", "{'piece': 'king', 'color': 'N/A', 'position': 'a2'}"),
@@ -269,33 +176,7 @@ class Verifier():
                     attributes=[
                         Text(
                             id="relations",
-                            description="""
-                                # Role
-                                You are programmer expert in converting text to JSON
-                            
-                                # Context
-                                Chess piece from the following list of pieces: [king, queen, knight, bishop, rook, pawn]
-                                Chess color of a chess piece from the following list: [black, white]
-                                Chess position of a chess piece from the following list of positions: [
-                                    a1, a2, a3, a4, a5, a6, a7, a8,
-                                    b1, b2, b3, b4, b5, b6, b7, b8,
-                                    c1, c2, c3, c4, c5, c6, c7, c8,
-                                    d1, d2, d3, d4, d5, d6, d7, d8,
-                                    e1, e2, e3, e4, e5, e6, e7, e8,
-                                    f1, f2, f3, f4, f5, f6, f7, f8,
-                                    g1, g2, g3, g4, g5, g6, g7, g8,
-                                    h1, h2, h3, h4, h5, h6, h7, h8
-                                ]
-                                Chess relation between two chess pieces is from the following list of relations: [defend, threat]
-                                - The following is a description of the relations:
-                                    1. {{tactic: "defend"}}: is a relationship between a piece and an ally piece such that piece can defend or protect the ally piece. this is DIFFERENT from "move_defend" and "move_is_protected".
-                                    2. {{tactic: "threat"}}: is a relationship between a piece and an opponent piece such that piece can attack or threat the opponent. this is DIFFERENT from "move_threat" and "move_is_attacked".              
-                                
-                                # Note:
-                                    - If piece color is "white" then opponent color is "black" and if piece color is "black" then its opponent color is "white".
-                                    - Ally pieces have the same color.
-                                    - you must fill fields with 'N/A' if they are not stated in the input.
-                            """,
+                            description=RELATION_SCHEMA_DESCRIPTION,
                             examples=[
                                 ("The black queen at c6 defend the black pawn at f3", "{'piece': 'queen', 'color': 'black', 'position': 'c6', 'ally_piece': 'pawn', 'ally_color': 'black', 'ally_position': 'f3', 'relation': 'defend'}"),
                                 ("Black pawn at h5 is threated by the white rook at h8", "{'piece': 'rook', 'color': 'white', 'position': 'h8', 'opponent_piece': 'pawn', 'opponent_color': 'black', 'opponent_position': 'h5', 'relation': 'threat'}"),
@@ -407,40 +288,7 @@ class Verifier():
             attributes=[
             Text(
                     id="move feature",
-                    description="""
-                        # Role
-                        You are programmer expert in converting text to JSON
-                    
-                        # Context
-                        Chess piece from the following list of pieces: [king, queen, knight, bishop, rook, pawn]
-                        Chess color of a chess piece from the following list: [black, white]
-                        Chess position and move of a chess piece from the following list of positions: [
-                            a1, a2, a3, a4, a5, a6, a7, a8,
-                            b1, b2, b3, b4, b5, b6, b7, b8,
-                            c1, c2, c3, c4, c5, c6, c7, c8,
-                            d1, d2, d3, d4, d5, d6, d7, d8,
-                            e1, e2, e3, e4, e5, e6, e7, e8,
-                            f1, f2, f3, f4, f5, f6, f7, f8,
-                            g1, g2, g3, g4, g5, g6, g7, g8,
-                            h1, h2, h3, h4, h5, h6, h7, h8
-                        ]
-                        Chess move features between two chess pieces is from the following list of relations: [move_defend, move_threat, move_is_protected, move_is_attacked]
-                        - The following is a description of the relations:
-                            1. {{feature: "move_defend"}}: is a move made by a piece from its current position to new position to defend an ally piece on a third different position. Use when asked about a "move" that defend or protect a piece.
-                            2. {{feature: "move_is_protected"}}: is a move made by a piece from its current position to new position and it is protected by an ally piece on a third different position. Use when asked about pieces that defend or protect a "move".
-                            3. {{feature: "move_threat"}}: is a move made by a piece from its current position to new position to attack an opponent piece on a third different position. Use when asked about a "move" that attack or threat a piece.
-                            4. {{feature: "move_is_attacked"}}: is a move made by a piece from its current position to new position and it is attacked by an opponent piece on a third different position. Use when asked about pieces that attack or threat a "move".
-       
-                        # Note:
-                            - If piece color is "white" then opponent color is "black" and if piece color is "black" then its opponent color is "white".
-                            - Ally pieces have the same color.
-                            - The output must have 'piece', 'color', 'position', 'move' and 'feature'
-                            - The output must include 'opponent_piece', 'opponent_color' and 'opponent_position' for 'move_is_attacked' or 'move_threat'
-                            - The output must include 'ally_piece', 'ally_color' and 'ally_position' for 'move_is_protected' or 'move_defend'
-                            - The 'move' can not be None or null!
-                            - you must fill fields with 'N/A' if they are not stated in the input.
-                            - The position of a piece MUST NOT be the SAME as the value of the move!
-                    """,
+                    description=MOVE_FEATURE_SCHEMA_DESCRIPTION,
                     examples=[
                         ("white rook at d1 is attacked by black rook at d8 for the move e1", "{'piece': 'rook', 'color': 'white', 'position': 'd1', 'opponent_piece': 'rook', 'opponent_color': 'black', 'opponent_position': 'd8', 'move': 'e1', 'feature': 'move_is_attacked'}"),
                         ("The black rook move to d8 is threatened by a white knight at f7.", "{'piece': 'rook', 'color': 'black', 'position': 'N/A', 'opponent_piece': 'knight', 'opponent_color': 'white', 'opponent_position': 'f7', 'move': 'd8', 'feature': 'move_is_attacked'}")
