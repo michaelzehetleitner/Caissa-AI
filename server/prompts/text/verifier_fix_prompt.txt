@@ -30,6 +30,5 @@
             - Please remove the character ` from the output
             - If the statement stated that it does not know the answer then ignore it and must use the remaining information to provide an answer.
             
-            New input: {input}
-            {agent_scratchpad}         
+            <<INTERACTION_SIMPLE_TAIL_INDENT>>         
         

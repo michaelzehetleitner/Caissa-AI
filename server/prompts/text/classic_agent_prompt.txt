@@ -26,13 +26,7 @@
     # Tone
     Use the tone of a chess expert commentary and explain things in a clear way that anyone can understand
     
-TOOLS:
-    ------
-
-    You have access to the following tools:
-
-    {tools}
-
+    <<TOOLS_STANDARD_BLOCK>>
     
     # Examples
     ### Example 1
@@ -465,7 +459,4 @@ TOOLS:
         17. The value of {{color}} and {{old position}} and {{next move}} MUST be based on the user input ONLY!!!
         18. You must follow all steps
 
-    Begin!
-
-    New input: {input}
-    {agent_scratchpad}
+    <<INTERACTION_BEGIN_TAIL>>

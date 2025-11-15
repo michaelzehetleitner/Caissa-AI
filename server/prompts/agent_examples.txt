@@ -1,0 +1,66 @@
+    # Examples
+
+    ### Example 1: Identify defended pieces
+    Human: Which white pieces does the queen on d3 defend?
+    Thought: Do I need to use a tool? Yes, I must inspect the graph.
+    Action: Graph Cypher QA Chain
+    Action Input: What ally pieces does the white queen defend from d3?
+    {{piece}}: queen
+    {{color}}: white
+    {{old position}}: d3
+    {{next move}}: <unknown>
+    {{opponent}}: <unknown>
+    {{relation}}: defend
+    GraphCypher QA Chain Output: {{'context': [{{'p2.piece': 'rook', 'p2.color': 'white', 's2.position': 'd1'}}, {{'p2.piece': 'knight', 'p2.color': 'white', 's2.position': 'f2'}}]}}
+    Thought: The context lists every ally square the queen defends, so I can answer directly.
+    Final Answer: The white queen on d3 defends the white rook on d1 and the white knight on f2.
+
+    ### Example 2: Commentary with unanswered sub-question
+    Human: Give me a commentary for the move of the black rook from c6 to c2.
+    Thought: Do I need to use a tool? Yes, start with the move_defend question.
+    Action: Graph Cypher QA Chain
+    Action Input: What black pieces are defended by the move of black rook from c6 to c2?
+    {{piece}}: rook
+    {{color}}: black
+    {{old position}}: c6
+    {{next move}}: c2
+    {{opponent}}: <unknown>
+    {{relation}}: move_defend
+    GraphCypher QA Chain Output: {{'context': []}}
+    Thought: Context is empty for move_defend, so I must state that I do not know the answer before moving on to the next required question.
+    Action: Graph Cypher QA Chain
+    Action Input: Which white pieces are attacked by the move of black rook from c6 to c2?
+    {{piece}}: rook
+    {{color}}: black
+    {{old position}}: c6
+    {{next move}}: c2
+    {{opponent}}: white
+    {{relation}}: move_threat
+    GraphCypher QA Chain Output: {{'context': [{{'attacked_piece': 'pawn', 'attacked_color': 'white', 'attacked_position': 'c2'}}]}}
+    Thought: I now have at least one concrete statement to include in the commentary.
+    Final Answer: I do not know the answer to the move_defend question. However, the move of the black rook from c6 to c2 threatens the white pawn on c2.
+
+    ### Example 3: Multi-question summary
+    Human: Summarize what the white bishop on b5 controls.
+    Thought: Do I need to use a tool? Yes, I will ask about threats and defended pieces separately.
+    Action: Graph Cypher QA Chain
+    Action Input: What black pieces are threatened without a move by white bishop at b5?
+    {{piece}}: bishop
+    {{color}}: white
+    {{old position}}: b5
+    {{next move}}: <unknown>
+    {{opponent}}: black
+    {{relation}}: threat
+    GraphCypher QA Chain Output: {{'context': [{{'p2.piece': 'rook', 'p2.color': 'black', 's2.position': 'b7'}}]}}
+    Thought: Record that the bishop threatens the black rook on b7, then continue with the defend relation.
+    Action: Graph Cypher QA Chain
+    Action Input: What white pieces are defended without a move by white bishop at b5?
+    {{piece}}: bishop
+    {{color}}: white
+    {{old position}}: b5
+    {{next move}}: <unknown>
+    {{opponent}}: <unknown>
+    {{relation}}: defend
+    GraphCypher QA Chain Output: {{'context': [{{'p2.piece': 'knight', 'p2.color': 'white', 's2.position': 'd4'}}, {{'p2.piece': 'pawn', 'p2.color': 'white', 's2.position': 'b3'}}]}}
+    Thought: I have answers for both questions, so I can summarize them.
+    Final Answer: The white bishop on b5 threatens the black rook on b7 while defending the white knight on d4 and the white pawn on b3.

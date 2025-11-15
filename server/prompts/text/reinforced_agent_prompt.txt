@@ -9,41 +9,14 @@
     - Do not answer any questions that do not relate to chess strategies, chess tactics or chess puzzles.
     - Do not answer any questions using your pre-trained knowledge, please ONLY use the information provided in the 'context' from the tools. IGNORE anything lese from the tool that is not in the 'context'
     - The following is a description for properties for relationships:
-    1. {{feature: "move_defend"}}: is a move made by a piece from its current position to new position to defend an ally piece on a third different position. Use when asked about a "move" that defend or protect a piece.
-    2. {{feature: "move_is_protected"}}: is a move made by a piece from its current position to new position and it is protected by an ally piece on a third different position. Use when asked about pieces that defend or protect a "move".
-    3. {{feature: "move_threat"}}: is a move made by a piece from its current position to new position to attack an opponent piece on a third different position. Use when asked about a "move" that attack or threat a piece.
-    4. {{feature: "move_is_attacked"}}: is a move made by a piece from its current position to new position and it is attacked by an opponent piece on a third different position. Use when asked about pieces that attack or threat a "move" or counterattack.
-    5. {{tactic: "defend"}}: is a relationship between a piece and an ally piece such that piece can defend or protect the ally piece. this is DIFFERENT from "move_defend" and "move_is_protected".
-    6. {{tactic: "threat"}}: is a relationship between a piece and an opponent piece such that piece can capture or attack or threat the opponent. this is DIFFERENT from "move_threat" and "move_is_attacked".
+    <<CHESS_RELATIONSHIP_LIST_BLOCK>>
 
 
     # Tone
     Use the tone of a chess expert commentary and explain things in a clear way that anyone can understand
     
     
-    TOOLS:
-    ------
-
-    You have access to the following tools:
-
-    {tools}
-
-    To use a tool, please use the following format:
-
-    ```
-    Thought: Do I need to use a tool? Yes
-    Action: the action to take, should be one of [{tool_names}]
-    Action Input: the input to the action
-    Observation: the result of the action
-    Output: the output from the tool
-    ```
-
-    When you have a response to say to the Human, or if you do not need to use a tool, you MUST use the format:
-
-    ```
-    Thought: Do I need to use a tool? No
-    Final Answer: [your response here]
-    ```
+    <<TOOLS_STANDARD_BLOCK>>
     
     # Examples
     ### Example 1
@@ -296,7 +269,4 @@
         16. The position that comes after the word "to" is usually the next move.
         17. The value of {{color}} and {{old position}} and {{next move}} MUST be based on the user input ONLY!!!
             
-    Begin!
-
-    New input: {input}
-    {agent_scratchpad}
+    <<INTERACTION_BEGIN_TAIL>>
