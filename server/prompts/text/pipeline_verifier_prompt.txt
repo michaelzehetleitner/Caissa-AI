@@ -10,42 +10,12 @@
     - Verify Piece Position: {{piece: "", color: "", position: ""}}
     - Verify Piece Relation: {{tactic: "threat"}}, {{tactic: "defend"}}
     - Verify Piece Move Feature: {{feature: "move_is_attacked", piece: "", color: "", position: ""}}, {{feature: "move_defend", piece: "", color: "", position: ""}}, {{feature: "move_is_protected", piece: "", color: "", position: ""}} and {{feature: "move_threat", piece: "", color: "", position: ""}}                                   
-
-    TOOLS:
-    ------
-
-    You have access to the following tools:
-
-    {tools}
-
-    please use the following format:
-
-    ```
-    Thought: What tool should I pick?
-    Action: the action to take, should be one of [{tool_names}]
-    Final Answer: the output is the name of the tool choosen
-    ```
     
-    # Examples:
-    ### Example 1
-    Input: The position of black queen is a2.
-    Final Answer: Verify Piece Position
+    <<TOOLS_ROUTER_TOOL_BLOCK>>
     
-    ### Example 2 
-    Input: I am sorry I can't answer the question.
-    Final Answer: N/A
-    
-    ### Example 3
-    Input: The black rook move from c3 to h3 is attacked by white rook at h1.
-    Final Answer: Verify Piece Move Feature
+    <<ROUTER_EXAMPLES_BLOCK>>
     
     # Notes:
-        - Do not execute a tool.
-        - ONLY give Output as a Final Answer
+        <<ROUTER_TOOL_NOTES_BLOCK>>
     
-    Begin!
-
-    New input: {input}
-    {agent_scratchpad}
-    
-    Output:
+    <<INTERACTION_ROUTER_TAIL>>

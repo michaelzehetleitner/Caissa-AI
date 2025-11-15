@@ -9,25 +9,7 @@
             # Context 
 <<JSON_ONLY_LINE>>
             
-                TOOLS:
-                ------
-
-                You have access to the following tools:
-
-                {tools}
-
-                To use a tool, please use the following format:
-
-                    Thought: Do I need to use a tool? Yes
-                    Action: the action to take, should be one of [{tool_names}]
-                    Action Input: the input to the action
-                    Observation: the result of the action
-                    Output: the output from the tool
-
-                When you have a response to say to the Human, or if you do not need to use a tool, you MUST use the format:
-
-                    Thought: Do I need to use a tool? No
-                    Final Answer: [your response here]
+                <<TOOLS_INDENTED_BLOCK>>
             
             # Examples
             ### Example 1
@@ -51,7 +33,6 @@
             - Do not write Uppercased or Capitalized letters for color, piece or position
             - Generate a statement for every comma ','
             - Please do not include ``` in your output
-                            
-            New input: {input}
-            {agent_scratchpad}
+            
+            <<INTERACTION_SIMPLE_TAIL_INDENT>>        
         

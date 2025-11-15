@@ -8,6 +8,8 @@ from .placeholders import (
     _replace_once,
     apply_json_placeholders,
     apply_relationship_placeholders,
+    apply_tool_placeholders,
+    apply_interaction_placeholders,
 )
 
 _TEXT_DIR = Path(__file__).with_name("text")
@@ -118,11 +120,25 @@ def _build_reinforced_agent_prompt(base_prompt: str) -> str:
     return prompt
 
 
-CLASSIC_AGENT_PROMPT = apply_relationship_placeholders(_load_text("classic_agent_prompt.txt"))
+_classic_text = _load_text("classic_agent_prompt.txt")
+_classic_text = apply_relationship_placeholders(_classic_text)
+_classic_text = apply_tool_placeholders(_classic_text)
+_classic_text = apply_interaction_placeholders(_classic_text)
+CLASSIC_AGENT_PROMPT = _classic_text
 REINFORCED_AGENT_PROMPT = _build_reinforced_agent_prompt(CLASSIC_AGENT_PROMPT)
-BUILDER_AGENT_PROMPT = apply_json_placeholders(_load_text("builder_agent_prompt.txt"))
-VERIFIER_JSON_PROMPT = apply_json_placeholders(_load_text("verifier_json_prompt.txt"))
-VERIFIER_FIX_PROMPT = apply_json_placeholders(_load_text("verifier_fix_prompt.txt"))
+_builder_text = apply_json_placeholders(_load_text("builder_agent_prompt.txt"))
+_builder_text = apply_relationship_placeholders(_builder_text)
+_builder_text = apply_tool_placeholders(_builder_text)
+_builder_text = apply_interaction_placeholders(_builder_text)
+BUILDER_AGENT_PROMPT = _builder_text
+_verifier_json_text = apply_json_placeholders(_load_text("verifier_json_prompt.txt"))
+_verifier_json_text = apply_tool_placeholders(_verifier_json_text)
+_verifier_json_text = apply_interaction_placeholders(_verifier_json_text)
+VERIFIER_JSON_PROMPT = _verifier_json_text
+_verifier_fix_text = apply_json_placeholders(_load_text("verifier_fix_prompt.txt"))
+_verifier_fix_text = apply_tool_placeholders(_verifier_fix_text)
+_verifier_fix_text = apply_interaction_placeholders(_verifier_fix_text)
+VERIFIER_FIX_PROMPT = _verifier_fix_text
 
 __all__ = [
     "CLASSIC_AGENT_PROMPT",
