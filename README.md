@@ -153,7 +153,7 @@ The following table demonstrate concepts that are supported by both basic and re
 ## Code Snippets
 ### Build Knowledge Graph with Multiprocessing
 ```python
-def add_tactics_to_graph(filepath, fen_string):
+def add_tactics_to_graph(filepath, fen_string, symbolic_instance=None, tactics=None):
     '''
     Add all supported tactics relations to the knowledge graph.
     
@@ -325,6 +325,30 @@ def chat(input, fen_string) -> str:
     ```
     ./start.exe
     ```
+
+### 5. Run the Flask API Directly
+If you want to exercise the REST endpoints (for example `/reinforced_chatbot`) without launching the desktop wrapper:
+
+1. Create/activate a virtual environment in the repo root (reusing `.venv` is recommended):
+   ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate
+   pip install -r server/requirements.txt
+   ```
+2. Export the paths expected by the server:
+   ```bash
+   export PYTHONPATH="$(pwd)"
+   export KB_PATH="$(pwd)/server/neurosymbolicAI/symbolicAI/general.pl"
+   ```
+3. Make sure the environment variables for Neo4j (`NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`) and OpenAI/Gemini/Groq keys are resolvable via `.streamlit/secrets.toml` or your shell.
+4. Run the API:
+   ```bash
+   python -m server.server
+   ```
+   The server will be available on `http://127.0.0.1:5000`.
+
+> [!TIP]
+> The neuro-symbolic module automatically downloads the `Waterhorse/chessgpt-chat-v1` model from Hugging Face on first run. Ensure the machine can reach `https://huggingface.co` or pre-populate your `HF_HOME`/`HUGGINGFACE_HUB_CACHE` directories with that model if you need an offline workflow. Similarly, the GraphCypher tool requires a reachable Neo4j instance; if the database is unavailable the server will still start, but graph-backed commentary tools will raise a clear error the first time they are invoked.
 
 ## :warning: Note
 - Caïssa requires lots of computational power, so it tends to run slowly on older devices.
